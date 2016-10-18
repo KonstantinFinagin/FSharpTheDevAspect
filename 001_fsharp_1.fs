@@ -10,7 +10,9 @@ let exclaim s =
 
 let bigHello = prefixWithHello >> exclaim
 
-names
-|> Seq.map prefixWithHello
-|> Seq.map exclaim
-|> Seq.sort
+let hellos = 
+    names
+    |> Seq.map (fun x -> printfn "Mapped over %s" x; bigHello x)
+    |> Seq.sort
+    |> Seq.iter (printfn("%s"))
+hellos

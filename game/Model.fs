@@ -134,6 +134,7 @@ let gameWorld = {
 // 1. Have the Result discriminated union
 // 2. Have the bind function - apply the result if successful or return failure if not
 // 3. Have the switch function to extract Success from the result
+// 4. define bind operator to get rid of binds
 
 type Result<'TSuccess, 'TFailure> =
     | Success of 'TSuccess
@@ -143,6 +144,10 @@ let bind processFunc lastResult =
     match lastResult with 
     | Success s -> processFunc s
     | Failure f -> Failure f
+
+// bind operator
+let (>>=) x f =
+    bind f x
 
 let switch processFunc input =
     Success (processFunc input)
@@ -161,7 +166,8 @@ let extractDetailsFromRoom (room : Room) =
 let describeCurrentRoom world = 
     world.Player.Location
     |> getRoom world
-    |> (bind (switch extractDetailsFromRoom) >> bind (switch describeDetails))
+    >>= switch extractDetailsFromRoom 
+    >>= switch describeDetails
 
 // Parameter destructuring
 let north ({ North = northExit } : Exits) = northExit
@@ -186,15 +192,15 @@ let getExit direction exits =
 let move direction world =
     world
     |> getCurrentRoom 
-    |> bind (switch (fun room ->  room.Exits))
-    |> bind (getExit direction)
-    |> bind (getRoom world)
-    |> bind (switch (setCurrentRoom world))
+    >>= switch (fun room ->  room.Exits)
+    >>= getExit direction
+    >>= getRoom world
+    >>= switch (setCurrentRoom world)
 
 gameWorld
 |> move south
-|> bind (move north)
-|> bind (move west)
-|> bind (switch (describeCurrentRoom))
+>>= move north
+>>= move west
+>>= switch (describeCurrentRoom)
 |> ignore
 
