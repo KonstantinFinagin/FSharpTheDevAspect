@@ -130,7 +130,8 @@ let gameWorld = {
 
 // -------------- Logic -------------------
 
-// Railway-oriented programming
+// Railway-oriented programming - helps with organising code at a higher level, helping with error handling
+// But keeping error-handling out of the way
 // 1. Have the Result discriminated union
 // 2. Have the bind function - apply the result if successful or return failure if not
 // 3. Have the switch function to extract Success from the result
@@ -157,8 +158,9 @@ let getRoom world roomId =
     | Some room -> Success room
     | None -> Failure "Room does not exist!"
 
+// returning the string instead of printing it
 let describeDetails details =
-    printf "\n\n%s\n\n%s\n\n" details.Name details.Description
+    sprintf "\n\n%s\n\n%s\n\n" details.Name details.Description
 
 let extractDetailsFromRoom (room : Room) =
     room.Details
@@ -166,7 +168,7 @@ let extractDetailsFromRoom (room : Room) =
 let describeCurrentRoom world = 
     world.Player.Location
     |> getRoom world
-    >>= switch extractDetailsFromRoom 
+    >>= switch extractDetailsFromRoom
     >>= switch describeDetails
 
 // Parameter destructuring
@@ -197,10 +199,15 @@ let move direction world =
     >>= getRoom world
     >>= switch (setCurrentRoom world)
 
+let displayResult result = 
+    match result with 
+    | Success s -> printf "%s" s
+    | Failure f -> printf "%s" f
+
 gameWorld
 |> move south
->>= move north
+>>= move south
 >>= move west
->>= switch (describeCurrentRoom)
-|> ignore
+>>= describeCurrentRoom
+|> displayResult
 
