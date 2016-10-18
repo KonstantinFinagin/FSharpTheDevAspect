@@ -197,3 +197,4 @@ gameWorld
 |> bind (move west)
 |> bind (switch (describeCurrentRoom))
 |> ignore
+
