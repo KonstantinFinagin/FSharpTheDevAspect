@@ -220,6 +220,7 @@ let applyUpdate updateFunc worldState =
         worldState
 
 let basicGameLoop = 
+    // tail recursion!
     MailboxProcessor.Start(fun inbox -> 
         let rec innerLoop worldState =  
             async {
