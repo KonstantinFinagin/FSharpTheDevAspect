@@ -173,9 +173,9 @@ let describeCurrentRoom world =
 
 // Parameter destructuring
 let north ({ North = northExit } : Exits) = northExit
-let south ({ South = southExit } : Exits) = southExit
-let east ({ East = eastExit } : Exits) = eastExit
-let west ({ West = westExit } : Exits) = westExit
+let south exits = exits.South
+let east exits = exits.East
+let west exits = exits.West
 
 let getCurrentRoom world =
     world.Player.Location
@@ -204,10 +204,46 @@ let displayResult result =
     | Success s -> printf "%s" s
     | Failure f -> printf "%s" f
 
-gameWorld
-|> move south
->>= move south
->>= move west
->>= describeCurrentRoom
-|> displayResult
+type GameEvent =
+    | UpdateState of (World -> Result<World, string>)
+    | EndGameLoop 
+
+/// update the world state with the updateFunc and do something depending on
+/// whether the operation succeeded or failed
+let applyUpdate updateFunc worldState = 
+    match updateFunc worldState with    
+    | Success newState -> 
+        describeCurrentRoom newState |> displayResult
+        newState
+    | Failure message ->
+        printfn "\n\n%s\n" message
+        worldState
+
+let basicGameLoop = 
+    MailboxProcessor.Start(fun inbox -> 
+        let rec innerLoop worldState =  
+            async {
+                // dequeue a message from the queue
+                let! eventMsg = inbox.Receive()
+
+                // apply updateFunc to the world state and return/pass through rec functions 
+                // to use for the next messages that get received
+                // emulate mutable state while still using immutable data structure
+                match eventMsg with
+                | UpdateState updateFunc -> return! innerLoop (applyUpdate updateFunc worldState) // can also write innerloop <| updateFunc worldState
+                                                                                                  // return! (excl mark) - used in async context
+                | EndGameLoop -> return ()
+            }
+        innerLoop gameWorld)
+
+// various actors should be able to send messages and receive replies from the various actors and MB processors
+// we send a message through the game loop so it updates the world state 
+
+// basicGameLoop.Post(EndGameLoop) // just to test with alt+enter
+basicGameLoop.Post(UpdateState (move south))
+
+
+
+
+
 
