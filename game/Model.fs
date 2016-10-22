@@ -206,6 +206,7 @@ let displayResult result =
 
 type GameEvent =
     | UpdateState of (World -> Result<World, string>)
+    | ResetState of World
     | EndGameLoop 
 
 /// update the world state with the updateFunc and do something depending on
@@ -235,6 +236,7 @@ type GameEngine(initialState: World) =
                     match eventMsg with
                     | UpdateState updateFunc -> return! innerLoop (applyUpdate updateFunc worldState) // can also write innerloop <| updateFunc worldState
                                                                                                     // return! (excl mark) - used in async context
+                    | ResetState newState -> return! innerLoop newState
                     | EndGameLoop -> return ()
                 }
             innerLoop initialState)
@@ -274,6 +276,6 @@ let playerController =
             }
         innerLoop 0)
 
-
+playerController.Post("Stop")
 
 
