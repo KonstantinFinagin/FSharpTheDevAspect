@@ -247,9 +247,32 @@ type GameEngine(initialState: World) =
     member this.Stop() = 
         gameLoop.Post(EndGameLoop)
 
+let gameEngine = GameEngine(gameWorld)
+gameEngine.ApplyUpdate(move south)
 
+let rand = System.Random()
 
+let playerController = 
+    MailboxProcessor.Start(fun inbox -> 
+        let rec innerLoop state = 
+            async {
+                try
+                    let! eventMsg = inbox.Receive(2000)
+                    if eventMsg = "Stop" then return ()
+                with 
+                | :? System.TimeoutException -> 
+                    ["north", north
+                     "south", south
+                     "east", east
+                     "west", west]
+                    |> List.item (rand.Next 4)
+                    |> fun(dir, dirFunc) -> printfn "Wandering %s..." dir; dirFunc // returning dirFunc and piping it to move
+                    |> move  
+                    |> gameEngine.ApplyUpdate         
 
+                    do! innerLoop state    
+            }
+        innerLoop 0)
 
 
 
