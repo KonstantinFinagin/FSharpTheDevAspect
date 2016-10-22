@@ -219,29 +219,35 @@ let applyUpdate updateFunc worldState =
         printfn "\n\n%s\n" message
         worldState
 
-let basicGameLoop = 
-    // tail recursion!
-    MailboxProcessor.Start(fun inbox -> 
-        let rec innerLoop worldState =  
-            async {
-                // dequeue a message from the queue
-                let! eventMsg = inbox.Receive()
+type GameEngine(initialState: World) = 
 
-                // apply updateFunc to the world state and return/pass through rec functions 
-                // to use for the next messages that get received
-                // emulate mutable state while still using immutable data structure
-                match eventMsg with
-                | UpdateState updateFunc -> return! innerLoop (applyUpdate updateFunc worldState) // can also write innerloop <| updateFunc worldState
-                                                                                                  // return! (excl mark) - used in async context
-                | EndGameLoop -> return ()
-            }
-        innerLoop gameWorld)
+    let gameLoop = 
+        // tail recursion!
+        MailboxProcessor.Start(fun inbox -> 
+            let rec innerLoop worldState =  
+                async {
+                    // dequeue a message from the queue
+                    let! eventMsg = inbox.Receive()
 
-// various actors should be able to send messages and receive replies from the various actors and MB processors
-// we send a message through the game loop so it updates the world state 
+                    // apply updateFunc to the world state and return/pass through rec functions 
+                    // to use for the next messages that get received
+                    // emulate mutable state while still using immutable data structure
+                    match eventMsg with
+                    | UpdateState updateFunc -> return! innerLoop (applyUpdate updateFunc worldState) // can also write innerloop <| updateFunc worldState
+                                                                                                    // return! (excl mark) - used in async context
+                    | EndGameLoop -> return ()
+                }
+            innerLoop initialState)
 
-// basicGameLoop.Post(EndGameLoop) // just to test with alt+enter
-basicGameLoop.Post(UpdateState (move south))
+    // various actors should be able to send messages and receive replies from the various actors and MB processors
+    // we send a message through the game loop so it updates the world state 
+    member this.ApplyUpdate(updateFunc) = 
+        gameLoop.Post(UpdateState updateFunc)
+
+    member this.Stop() = 
+        gameLoop.Post(EndGameLoop)
+
+
 
 
 
