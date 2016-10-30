@@ -236,7 +236,7 @@ type GameEngine(initialState: World) =
                     match eventMsg with
                     | UpdateState updateFunc -> return! innerLoop (applyUpdate updateFunc worldState) // can also write innerloop <| updateFunc worldState
                                                                                                     // return! (excl mark) - used in async context
-                    | ResetState newState -> return! innerLoop newState
+                    | ResetState newState -> return! innerLoop newState 
                     | EndGameLoop -> return ()
                 }
             innerLoop initialState)
@@ -246,36 +246,46 @@ type GameEngine(initialState: World) =
     member this.ApplyUpdate(updateFunc) = 
         gameLoop.Post(UpdateState updateFunc)
 
+    member this.ResetState(newState) =
+        gameLoop.Post(ResetState newState)
+
     member this.Stop() = 
         gameLoop.Post(EndGameLoop)
 
 let gameEngine = GameEngine(gameWorld)
-gameEngine.ApplyUpdate(move south)
 
-let rand = System.Random()
+// Command parsing
 
-let playerController = 
-    MailboxProcessor.Start(fun inbox -> 
-        let rec innerLoop state = 
-            async {
-                try
-                    let! eventMsg = inbox.Receive(2000)
-                    if eventMsg = "Stop" then return ()
-                with 
-                | :? System.TimeoutException -> 
-                    ["north", north
-                     "south", south
-                     "east", east
-                     "west", west]
-                    |> List.item (rand.Next 4)
-                    |> fun(dir, dirFunc) -> printfn "Wandering %s..." dir; dirFunc // returning dirFunc and piping it to move
-                    |> move  
-                    |> gameEngine.ApplyUpdate         
+let expectChar expectedChar inputChars =    
+    match inputChars with // decomposin a list 
+    | c :: remainingChars -> 
+        if c = expectedChar then Success(c, remainingChars)
+        else Failure (sprintf "Expected '%c', got '%c'" expectedChar c)
+    | [] -> 
+        Failure (sprintf "Expected '%c', reached end of input" expectedChar)
 
-                    do! innerLoop state    
-            }
-        innerLoop 0)
+let stringToCharList str =
+    List.ofSeq str
 
-playerController.Post("Stop")
+// Parser combinator function to get more complex behavior
+let orParse parser1 parser2 inputChars =
+    match parser1 inputChars with 
+    | Success result -> Success result
+    | Failure _ -> parser2 inputChars
+
+// Operator definition syntax
+let ( <|> ) = orParse
+
+stringToCharList "take"
+|> (expectChar 'r' <|> expectChar 't')
+|> printfn "%A"  
+
+
+
+
+
+
+
+
 
 
