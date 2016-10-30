@@ -276,8 +276,11 @@ let orParse parser1 parser2 inputChars =
 // Operator definition syntax
 let ( <|> ) = orParse
 
+let choice parserList = 
+    List.reduce orParse parserList
+
 stringToCharList "take"
-|> (expectChar 'r' <|> expectChar 't')
+|> choice [expectChar 'r'; expectChar 't'; expectChar 'c'] // left-associative operators
 |> printfn "%A"  
 
 
