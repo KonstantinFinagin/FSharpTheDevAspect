@@ -284,8 +284,18 @@ let anyCharOf validChars =
     |> List.map expectChar
     |> choice
 
-stringToCharList "take"
-|> anyCharOf ['a'..'z'] // left-associative operators
+let andParse parser1 parser2 inputChars =
+    match parser1 inputChars with
+    | Failure msg -> Failure msg
+    | Success (c1, remaining1) ->
+        match parser2 remaining1 with 
+        | Failure msg -> Failure msg
+        | Success (c2, remaining2) -> 
+            Success ((c1,c2), remaining2)
+
+stringToCharList "like"
+|> andParse (expectChar 'l') (expectChar 'a')
+//|> anyCharOf ['a'..'z'] // left-associative operators
 |> printfn "%A"  
 
 
