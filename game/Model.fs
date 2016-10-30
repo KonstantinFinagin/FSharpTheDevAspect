@@ -279,8 +279,13 @@ let ( <|> ) = orParse
 let choice parserList = 
     List.reduce orParse parserList
 
+let anyCharOf validChars = 
+    validChars
+    |> List.map expectChar
+    |> choice
+
 stringToCharList "take"
-|> choice [expectChar 'r'; expectChar 't'; expectChar 'c'] // left-associative operators
+|> anyCharOf ['r'; 't'; 'c'] // left-associative operators
 |> printfn "%A"  
 
 
