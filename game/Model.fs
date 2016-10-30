@@ -285,7 +285,7 @@ let anyCharOf validChars =
     |> choice
 
 stringToCharList "take"
-|> anyCharOf ['r'; 't'; 'c'] // left-associative operators
+|> anyCharOf ['a'..'z'] // left-associative operators
 |> printfn "%A"  
 
 
