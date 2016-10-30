@@ -254,24 +254,37 @@ type GameEngine(initialState: World) =
 
 let gameEngine = GameEngine(gameWorld)
 
+// ----------------------------------------
 // Command parsing
+// ----------------------------------------
 
-let expectChar expectedChar inputChars =    
-    match inputChars with // decomposin a list 
-    | c :: remainingChars -> 
-        if c = expectedChar then Success(c, remainingChars)
-        else Failure (sprintf "Expected '%c', got '%c'" expectedChar c)
-    | [] -> 
-        Failure (sprintf "Expected '%c', reached end of input" expectedChar)
+type Parser<'a> = Parser of (char list -> Result<'a * char list, string>)
+
+let runParser parser inputChars =
+    let (Parser parserFunc) = parser // give that parser function and bind it to the name parserFunc
+    parserFunc inputChars
+
+let expectChar expectedChar =    
+    let innerParser inputChars =
+        match inputChars with // decomposing a list 
+        | c :: remainingChars -> 
+            if c = expectedChar then Success(c, remainingChars)
+            else Failure (sprintf "Expected '%c', got '%c'" expectedChar c)
+        | [] -> 
+            Failure (sprintf "Expected '%c', reached end of input" expectedChar)
+
+    Parser innerParser
 
 let stringToCharList str =
     List.ofSeq str
 
 // Parser combinator function to get more complex behavior
-let orParse parser1 parser2 inputChars =
-    match parser1 inputChars with 
-    | Success result -> Success result
-    | Failure _ -> parser2 inputChars
+let orParse parser1 parser2 =
+    let innerParser inputChars =
+        match runParser parser1 inputChars with 
+        | Success result -> Success result
+        | Failure _ -> runParser parser2 inputChars
+    Parser innerParser
 
 // Operator definition syntax
 let ( <|> ) = orParse
@@ -284,17 +297,69 @@ let anyCharOf validChars =
     |> List.map expectChar
     |> choice
 
-let andParse parser1 parser2 inputChars =
-    match parser1 inputChars with
-    | Failure msg -> Failure msg
-    | Success (c1, remaining1) ->
-        match parser2 remaining1 with 
+// runs two parser and tuples the result together in a parser type
+let andParse parser1 parser2 =
+    let innerParser inputChars =
+        match runParser parser1 inputChars with
         | Failure msg -> Failure msg
-        | Success (c2, remaining2) -> 
-            Success ((c1,c2), remaining2)
+        | Success (c1, remaining1) ->
+            match runParser parser2 remaining1 with 
+            | Failure msg -> Failure msg
+            | Success (c2, remaining2) -> 
+                Success ((c1,c2), remaining2)
+    Parser innerParser
+let ( .>>. ) = andParse
 
-stringToCharList "like"
-|> andParse (expectChar 'l') (expectChar 'a')
+let mapParser mapFunc parser =  
+    let innerParser inputChars =
+        match runParser parser inputChars with 
+        | Failure msg -> Failure msg
+        | Success (result, remaining) ->
+            Success(mapFunc result, remaining)
+    Parser innerParser
+
+let applyParser funcAsParser paramAsParser =
+    (funcAsParser .>>. paramAsParser)
+    |> mapParser (fun (f, x) -> f x)
+    
+let ( <*> ) = applyParser
+
+let returnAsParser result =
+    let innerParser inputChars =
+        Success (result, inputChars)
+    Parser innerParser
+
+// Lift function - can lift a function to a Parser
+let liftToParser2 funcToLift paramAsParser1 paramAsParser2 =
+    // taking parameter value returned from funcToLift and then apply it to paramAsParser1
+    // partial application paramAsParser2
+    returnAsParser funcToLift <*> paramAsParser1 <*> paramAsParser2 
+
+
+// Tail recursive function to combine parsers
+let rec sequenceParsers parserList =
+
+    let cons head rest = head :: rest
+    // lift cons function to parser space
+    let consAsParser = liftToParser2 cons
+
+    match parserList with 
+    | [] -> returnAsParser []
+    | parser :: remainingParsers -> 
+        consAsParser parser (sequenceParsers remainingParsers)
+
+let charListAsString chars =
+    System.String(List.toArray chars)
+
+let expectString expectedString =
+    expectedString 
+    |> stringToCharList
+    |> List.map expectChar
+    |> sequenceParsers 
+    |> mapParser charListAsString
+
+stringToCharList "lake"
+|> runParser (expectChar 'l') 
 //|> anyCharOf ['a'..'z'] // left-associative operators
 |> printfn "%A"  
 
